@@ -1,104 +1,241 @@
-// Importerer innebygd 'path' for trygg håndtering av filstier på tvers av OS
-const path = require('path'); // Brukes til å lage korrekte stier til views, public og databasefil
+// Importerer innebygd 'path' for trygg håndtering av filstier
+const path = require('path');
 
 // Importerer Express-rammeverket
-const express = require('express'); // Gjør det enkelt å lage HTTP-server og ruter
+const express = require('express');
 
-// Importerer SQLite3-driveren for Node.js
-const sqlite3 = require('sqlite3').verbose(); // Lar oss koble til og kjøre SQL mot en lokal SQLite-fil
+// Importerer SQLite3-driver
+const sqlite3 = require('sqlite3').verbose();
 
-// Lager en ny Express-applikasjon
-const app = express(); // Initialiserer Express-appen
+// Importerer bcrypt for kryptering av passord
+const bcrypt = require('bcrypt');
 
-// Setter portnummeret som serveren skal lytte på
-const PORT = 3000; // Standard port for lokal utvikling
+// Importerer express-session for innloggingssesjoner
+const session = require('express-session');
 
-// Åpner/oppretter SQLite-databasefilen 'app.db' i prosjektmappen
-const db = new sqlite3.Database(path.join(__dirname, 'Sangdatabase.db')); // Oppretter/åpner databasefilen der data lagres
+// Lager Express-applikasjonen
+const app = express();
 
-// Oppretter 'songs'-tabellen hvis den ikke finnes fra før
-db.serialize(() => { // Sørger for at SQL-kommandoer kjører i rekkefølge
-  db.run(` -- Starter SQL for å lage tabellen
-    CREATE TABLE IF NOT EXISTS songs (               -- Lager tabellen bare hvis den ikke finnes
-      id INTEGER PRIMARY KEY AUTOINCREMENT,          -- Primærnøkkel som øker automatisk
-      title TEXT NOT NULL,                           -- Sangtittel (påkrevd)
-      artist TEXT NOT NULL,                          -- Artistnavn (påkrevd)
-      listened_date TEXT NOT NULL                    -- Dato i format YYYY-MM-DD (påkrevd)
-    )                                                -- Slutt på CREATE TABLE
-  `); // Avslutter kjøringen av SQL-setningen
-}); // Avslutter serialize-blokk
+// Port
+const PORT = 3000;
 
-// Setter EJS som templatemotor
-app.set('view engine', 'ejs'); // Forteller Express at .ejs-filer skal rendre HTML
+// Åpner/oppretter SQLite-database
+const db = new sqlite3.Database(path.join(__dirname, 'accounts.db'));
 
-// Angir mappen som inneholder EJS-visningene
-app.set('views', path.join(__dirname, 'views')); // Sikrer korrekt sti til 'views'-mappen
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Gjør statiske filer tilgjengelig (f.eks. CSS) fra 'public'-mappen
-app.use(express.static(path.join(__dirname, 'public'))); // Lar nettleseren hente /styles.css osv.
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.get('/', (req, res) => {
+  res.render('index', {
+    title: "Account System"
+  });
+});
 
-// Aktiverer parsing av URL-enkodede skjemaer (application/x-www-form-urlencoded)
-app.use(express.urlencoded({ extended: true })); // Lar oss lese req.body ved POST fra HTML-skjema
+// Oppretter users-tabell hvis den ikke finnes
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `);
+});
 
-// Hjelpefunksjon: kjør SELECT som henter flere rader (Promise-basert)
-function dbAll(sql, params = []) { // Definerer en funksjon for å kjøre SELECT som returnerer flere rader
-  return new Promise((resolve, reject) => { // Returnerer et Promise for å kunne bruke async/await
-    db.all(sql, params, (err, rows) => { // Kjører spørringen med parametere
-      if (err) return reject(err); // Avviser Promise hvis SQL-feil oppstår
-      resolve(rows); // Løser Promise med resultat-radene
-    }); // Avslutter callback for db.all
-  }); // Avslutter Promise
-} // Avslutter funksjonen dbAll
 
-// Hjelpefunksjon: kjør INSERT/UPDATE/DELETE (Promise-basert)
-function dbRun(sql, params = []) { // Definerer en funksjon for å kjøre skrivende spørringer
-  return new Promise((resolve, reject) => { // Returnerer et Promise
-    db.run(sql, params, function (err) { // Kjører spørringen og beholder 'this' for lastID/changes
-      if (err) return reject(err); // Avviser Promise ved SQL-feil
-      resolve(this); // Løser Promise med 'this' (inneholder lastID for INSERT)
-    }); // Avslutter callback for db.run
-  }); // Avslutter Promise
-} // Avslutter funksjonen dbRun
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// GET / - viser skjema for å legge inn sang og lister alle lagrede sanger
-app.get('/', async (req, res) => { // Definerer rute for å vise startsiden
-  try { // Starter try/catch for feilhandtering
-    const songs = await dbAll( // Henter alle sanger fra databasen
-      'SELECT id, title, artist, listened_date FROM songs ORDER BY listened_date DESC, id DESC', // SQL for å liste sanger
-      [] // Ingen parametere for denne spørringen
-    ); // Avslutter henting av sanger
-    res.render('index', { title: 'Registrer sanger', songs, message: null }); // Renderer index.ejs med data
-  } catch (err) { // Fanger eventuelle feil
-    console.error(err); // Logger feilen i konsollen
-    res.status(500).send('Noe gikk galt.'); // Sender en enkel feilmelding til klienten
-  } // Avslutter try/catch
-}); // Avslutter GET-ruten
 
-// POST /songs - validerer og lagrer en ny sang i databasen
-app.post('/songs', async (req, res) => { // Definerer rute for innsending av nytt sangskjema
-  try { // Starter try/catch for å håndtere feil
-    const { title, artist, listened_date } = req.body; // Leser ut feltene fra skjemaet
-    if (!title || !artist || !listened_date) { // Sjekker at alle felt er utfylt
-      const songs = await dbAll('SELECT id, title, artist, listened_date FROM songs ORDER BY listened_date DESC, id DESC'); // Henter liste for visning ved feil
-      return res.status(400).render('index', { title: 'Registrer sanger', songs, message: 'Fyll ut tittel, artist og dato.' }); // Viser feilmelding
-    } // Avslutter validering for tomme felt
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(listened_date)) { // Sjekker at dato har format YYYY-MM-DD
-      const songs = await dbAll('SELECT id, title, artist, listened_date FROM songs ORDER BY listened_date DESC, id DESC'); // Henter liste for visning ved feil
-      return res.status(400).render('index', { title: 'Registrer sanger', songs, message: 'Dato må være i format YYYY-MM-DD.' }); // Viser feilmelding om datoformat
-    } // Avslutter datoformat-sjekk
-    await dbRun( // Kjører INSERT for å lagre sangen
-      'INSERT INTO songs (title, artist, listened_date) VALUES (?, ?, ?)', // SQL med parametere
-      [title.trim(), artist.trim(), listened_date] // Verdier å sette inn (trim fjerner ekstra mellomrom)
-    ); // Avslutter INSERT
-    res.redirect('/'); // Sender brukeren tilbake til forsiden for å se oppdatert liste
-  } catch (err) { // Fanger uventede feil
-    console.error(err); // Logger feilen
-    const songs = await dbAll('SELECT id, title, artist, listened_date FROM songs ORDER BY listened_date DESC, id DESC'); // Henter liste for visning ved feil
-    res.status(500).render('index', { title: 'Registrer sanger', songs, message: 'Kunne ikke lagre sangen.' }); // Viser generell feilmelding
-  } // Avslutter try/catch
-}); // Avslutter POST-ruten
+// Session-oppsett
+app.use(session({
+  secret: 'very-secret-key-change-this',
+  resave: false,
+  saveUninitialized: false
+}));
 
-// Starter serveren
-app.listen(PORT, () => { // Ber Express lytte på definert port
-  console.log(`Server kjører på http://localhost:${PORT}`); // Logger URL for lett tilgang i nettleser
-}); // Avslutter app.listen
+
+// Hjelpefunksjon: SELECT
+function dbGet(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) return reject(err);
+      resolve(row);
+    });
+  });
+}
+
+
+// Hjelpefunksjon: SELECT flere
+function dbAll(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      resolve(rows);
+    });
+  });
+}
+
+
+// Hjelpefunksjon: INSERT/UPDATE/DELETE
+function dbRun(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) return reject(err);
+      resolve(this);
+    });
+  });
+}
+
+
+// Middleware som krever innlogging
+function requireAuth(req, res, next) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Ikke logget inn" });
+  }
+  next();
+}
+
+// REGISTER
+app.post('/api/register', async (req, res) => {
+
+  try {
+
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        error: "Username and password required"
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const result = await dbRun(
+      `INSERT INTO users (username, password, created_at)
+       VALUES (?, ?, ?)`,
+      [username.trim(), hashedPassword, new Date().toISOString()]
+    );
+
+    // Automatically log the user in
+    req.session.userId = result.lastID;
+
+    res.json({
+      success: true,
+      message: "User created and logged in"
+    });
+
+  } catch (err) {
+
+    if (err.message.includes("UNIQUE")) {
+      return res.status(400).json({
+        error: "Username already exists"
+      });
+    }
+
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+
+  }
+
+});
+
+
+// LOGIN
+app.post('/api/login', async (req, res) => {
+
+  try {
+
+    const { username, password } = req.body;
+
+    const user = await dbGet(
+      "SELECT * FROM users WHERE username = ?",
+      [username]
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        error: "Feil brukernavn eller passord"
+      });
+    }
+
+    // Sammenlign passord
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      return res.status(401).json({
+        error: "Feil brukernavn eller passord"
+      });
+    }
+
+    // Lagre bruker i session
+    req.session.userId = user.id;
+
+    res.json({
+      success: true,
+      message: "Innlogget"
+    });
+
+  } catch (err) {
+
+    console.error(err);
+    res.status(500).json({ error: "Serverfeil" });
+
+  }
+});
+
+
+// LOGOUT
+app.post('/api/logout', (req, res) => {
+
+  req.session.destroy(() => {
+    res.json({
+      success: true,
+      message: "Logget ut"
+    });
+  });
+
+});
+
+
+// PROTECTED ROUTE
+app.get('/api/profile', requireAuth, async (req, res) => {
+
+  try {
+
+    const user = await dbGet(
+      "SELECT id, username, created_at FROM users WHERE id = ?",
+      [req.session.userId]
+    );
+
+    res.json(user);
+
+  } catch (err) {
+
+    console.error(err);
+    res.status(500).json({ error: "Serverfeil" });
+
+  }
+
+});
+
+
+// Liste alle brukere (bare som test)
+app.get('/api/users', async (req, res) => {
+
+  const users = await dbAll(
+    "SELECT id, username, created_at FROM users"
+  );
+
+  res.json(users);
+
+});
+
+
+// Starter server
+app.listen(PORT, () => {
+  console.log(`Server kjører på http://localhost:${PORT}`);
+});

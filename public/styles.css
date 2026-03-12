@@ -1,92 +1,160 @@
-/* Grunnstil for hele siden */ 
-body { /* Body-elementet */
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; /* Lesbar fontfamilie */
-  margin: 0; /* Fjerner standard margin */
-  padding: 0; /* Fjerner standard padding */
-  background: #f6f7fb; /* Lys bakgrunnsfarge */
-  color: #222; /* Mørk tekst for god kontrast */
+/* ---------- GLOBAL PAGE STYLE ---------- */
+
+body {
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at top, #1f2937, #020617);
+  color: #e5e7eb;
+  line-height: 1.6;
 }
 
-/* Toppnavigasjon */
-.site-header { /* Header-område */
-  background: white; /* Hvit bakgrunn */
-  border-bottom: 1px solid #e5e7eb; /* Tynn bunnramme */
-  padding: 12px 16px; /* Indre luft */
+/* ---------- HEADER ---------- */
+
+.site-header {
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 16px 24px;
 }
 
-/* Nav-bar layout */
-.nav { /* Navigasjonscontainer */
-  display: flex; /* Bruker flex-layout */
-  align-items: center; /* Sentrerer vertikalt */
-  justify-content: space-between; /* Plasserer elementer i hver sin ende */
+/* Navigation layout */
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* Brand/lenke-stil */
-.brand { /* Logo/brand-lenken */
-  font-weight: 700; /* Fet skrift */
-  color: #0f766e; /* Teal-farge */
-  text-decoration: none; /* Ingen understrek */
+#authSection {
+  display: flex;
+  flex-direction: row;
+}
+#registerSection, #loginSection {
+  width: 100%;
 }
 
-/* Container for innhold */
-.container { /* Hovedinnpakning */
-  max-width: 800px; /* Begrenset bredde for lesbarhet */
-  margin: 24px auto; /* Sentrer og legg til topp/bunn-margin */
-  padding: 0 16px; /* Litt sidepadding */
+/* Brand */
+
+.brand {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  color: #60a5fa;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
 }
 
-/* Kort-komponent */
-.card { /* Panel med kant og bakgrunn */
-  background: white; /* Hvit bakgrunn */
-  border: 1px solid #e5e7eb; /* Lys kant */
-  border-radius: 8px; /* Runde hjørner */
-  padding: 16px; /* Indre luft */
-  margin-bottom: 16px; /* Avstand under */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04); /* Lett skygge */
+.brand:hover {
+  opacity: 0.8;
 }
 
-/* Skjemalayout */
-.form { /* Wrapper for skjema */
-  display: grid; /* Bruker grid-layout */
-  gap: 8px; /* Avstand mellom felter */
+/* ---------- PAGE CONTAINER ---------- */
+
+.container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 20px;
 }
 
-/* Input-felt */
-input { /* Tekst- og dato-inputs */
-  padding: 10px; /* Indre luft for klikkflate */
-  border: 1px solid #cbd5e1; /* Lys grå kant */
-  border-radius: 6px; /* Runde hjørner */
-  font-size: 16px; /* Lesbar skriftstørrelse */
+/* ---------- CARD / PANEL ---------- */
+
+.card {
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 22px;
+  margin-bottom: 22px;
+
+  backdrop-filter: blur(8px);
+
+  box-shadow:
+    0 10px 25px rgba(0,0,0,0.25),
+    inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
-/* Knapper */
-button { /* Generell knappestil */
-  background: #0ea5e9; /* Blå bakgrunn */
-  color: white; /* Hvit tekst */
-  border: none; /* Ingen kantlinje */
-  border-radius: 6px; /* Runde hjørner */
-  padding: 10px 14px; /* Indre luft */
-  font-size: 16px; /* Lesbar skriftstørrelse */
-  cursor: pointer; /* Pekehånd ved hover */
+/* ---------- FORM LAYOUT ---------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* Hover-effekt for knapp */
-button:hover { /* Når musen er over knappen */
-  background: #0284c7; /* Litt mørkere blå */
+/* ---------- INPUT FIELDS ---------- */
+
+input {
+  padding: 12px 14px;
+  font-size: 15px;
+
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.08);
+
+  background: rgba(15, 23, 42, 0.8);
+  color: #e5e7eb;
+
+  transition: all 0.2s ease;
 }
 
-/* Meldingsboks */
-.notice { /* Stil for informasjons-/feilmeldinger */
-  background: #ecfeff; /* Lys blå bakgrunn */
-  border: 1px solid #bae6fd; /* Lys blå kantlinje */
-  color: #0c4a6e; /* Mørk blå tekst */
-  padding: 10px; /* Indre luft */
-  border-radius: 6px; /* Runde hjørner */
-  margin: 12px 0; /* Avstand over og under */
+input::placeholder {
+  color: #94a3b8;
 }
 
-/* Dempet hjelpetekst */
-.muted { /* Mindre fremhevet tekst */
-  color: #555; /* Grå farge */
-  font-size: 14px; /* Litt mindre størrelse */
+input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96,165,250,0.25);
+}
+
+/* ---------- BUTTONS ---------- */
+
+button {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border: none;
+
+  padding: 12px 16px;
+  border-radius: 8px;
+
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    filter 0.2s ease;
+
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+}
+
+button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+
+/* ---------- NOTICE / MESSAGE ---------- */
+
+.notice {
+  padding: 12px 14px;
+
+  background: rgba(59,130,246,0.15);
+  border: 1px solid rgba(96,165,250,0.35);
+
+  border-radius: 8px;
+
+  color: #bfdbfe;
+}
+
+/* ---------- MUTED TEXT ---------- */
+
+.muted {
+  color: #94a3b8;
+  font-size: 13px;
 }

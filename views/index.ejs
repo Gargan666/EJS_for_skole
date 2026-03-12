@@ -1,41 +1,239 @@
-<%- include('partials/header') %> <!-- Inkluderer header-partialen (uten escaping) -->
+<%- include('partials/header') %>
 
-<h1><%= title %></h1> <!-- Viser sidetittel trygt -->
+<h1>Account System</h1>
 
-<% if (typeof message !== 'undefined' && message) { %> <!-- Hvis serveren har sendt en melding -->
-  <div class="notice"><%= message %></div> <!-- Viser meldingen i en meldingsboks -->
-<% } %> <!-- Slutt på melding-sjekk -->
+<div id="message" class="notice" style="display:none;"></div>
 
-<section class="card"> <!-- Kort med skjema for å legge til sang -->
-  <h2>Legg til sang</h2> <!-- Seksjonstittel -->
-  <form action="/songs" method="POST" class="form"> <!-- Skjema som sender POST til /songs -->
-    <label for="title">Sangtittel</label> <!-- Etikett for tittel -->
-    <input id="title" name="title" type="text" required /> <!-- Tekstfelt for tittel (påkrevd) -->
+<section id="authSection" class="auth-container">
 
-    <label for="artist">Artist</label> <!-- Etikett for artist -->
-    <input id="artist" name="artist" type="text" required /> <!-- Tekstfelt for artist (påkrevd) -->
+  <section class="card" id="registerSection">
 
-    <label for="listened_date">Dato (YYYY-MM-DD)</label> <!-- Etikett for dato -->
-    <input id="listened_date" name="listened_date" type="date" required /> <!-- Dato-input (sender YYYY-MM-DD) -->
+    <h2>Register</h2>
 
-    <button type="submit">Lagre sang</button> <!-- Sendeknapp for skjemaet -->
-  </form> <!-- Slutt på skjema -->
-  <p class="muted">Dato lagres i format YYYY-MM-DD.</p> <!-- Hjelpetekst til brukeren -->
-</section> <!-- Slutt på skjema-kort -->
+    <form id="registerForm" class="form">
 
-<section class="card"> <!-- Kort som viser registrerte sanger -->
-  <h2>Registrerte sanger</h2> <!-- Seksjonstittel -->
-  <ul> <!-- Starter liste over sanger -->
-    <% if (songs.length === 0) { %> <!-- Sjekker om listen er tom -->
-      <li>(Ingen sanger enda)</li> <!-- Viser tekst når det ikke finnes sanger -->
-    <% } %> <!-- Slutt på tom-sjekk -->
-    <% for (const s of songs) { %> <!-- Løkker gjennom alle sanger -->
-      <li> <!-- Starter listeelement -->
-        <strong><%= s.title %></strong> av <em><%= s.artist %></em> <!-- Viser tittel og artist trygt -->
-        <span class="muted">— <%= s.listened_date %></span> <!-- Viser dato trygt -->
-      </li> <!-- Slutt på listeelement -->
-    <% } %> <!-- Slutt på løkke -->
-  </ul> <!-- Slutt på liste -->
-</section> <!-- Slutt på liste-kort -->
+      <label for="reg_username">Username</label>
+      <input id="reg_username" name="username" type="text" required />
 
-<%- include('partials/footer') %> <!-- Inkluderer footer-partialen (uten escaping) -->
+      <label for="reg_password">Password</label>
+      <input id="reg_password" name="password" type="password" required />
+
+      <button type="submit">Register</button>
+
+    </form>
+
+  </section>
+
+
+  <section class="card" id="loginSection">
+
+    <h2>Login</h2>
+
+    <form id="loginForm" class="form">
+
+      <label for="login_username">Username</label>
+      <input id="login_username" name="username" type="text" required />
+
+      <label for="login_password">Password</label>
+      <input id="login_password" name="password" type="password" required />
+
+      <button type="submit">Login</button>
+
+    </form>
+
+  </section>
+
+</section>
+
+
+<section class="card" id="profileSection" style="display:none;">
+
+  <h2>Profile</h2>
+
+  <div id="profile">
+    <p class="muted">(Not logged in)</p>
+  </div>
+
+  <button id="logoutBtn">Logout</button>
+
+</section>
+
+<section class="card">
+
+  <h2>Registered Users</h2>
+
+  <ul id="userList">
+    <li class="muted">(Loading users...)</li>
+  </ul>
+
+</section>
+
+<script>
+
+// Message helper
+function showMessage(msg) {
+  const box = document.getElementById("message");
+  box.style.display = "block";
+  box.textContent = msg;
+}
+
+
+// REGISTER
+document.getElementById("registerForm").addEventListener("submit", async (e) => {
+
+  e.preventDefault();
+
+  const username = document.getElementById("reg_username").value;
+  const password = document.getElementById("reg_password").value;
+
+  const res = await fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ username, password })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    showMessage(data.error);
+  } else {
+    showMessage("User created and logged in");
+    loadProfile();
+    loadUsers();
+  }
+
+});
+
+
+// LOGIN
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+
+  e.preventDefault();
+
+  const username = document.getElementById("login_username").value;
+  const password = document.getElementById("login_password").value;
+
+  const res = await fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ username, password })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    showMessage(data.error);
+  } else {
+    showMessage("Logged in");
+    loadProfile();
+  }
+
+});
+
+
+// LOGOUT
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+
+  const res = await fetch("/api/logout", {
+    method: "POST"
+  });
+
+  const data = await res.json();
+
+  showMessage(data.message || "Logged out");
+
+  document.getElementById("profile").innerHTML =
+    "<p class='muted'>(Not logged in)</p>";
+
+  document.getElementById("loginSection").style.display = "block";
+  document.getElementById("registerSection").style.display = "block";
+  document.getElementById("profileSection").style.display = "none";
+
+});
+
+
+// LOAD PROFILE
+async function loadProfile() {
+
+  const loginSection = document.getElementById("loginSection");
+  const registerSection = document.getElementById("registerSection");
+  const profileSection = document.getElementById("profileSection");
+
+  const res = await fetch("/api/profile");
+
+  if (!res.ok) {
+    loginSection.style.display = "block";
+    profileSection.style.display = "none";
+    return;
+  }
+
+  const user = await res.json();
+
+  const profileDiv = document.getElementById("profile");
+
+  profileDiv.innerHTML = `
+    <p><strong>ID:</strong> ${user.id}</p>
+    <p><strong>Username:</strong> ${user.username}</p>
+    <p class="muted">Created: ${user.created_at}</p>
+  `;
+
+  loginSection.style.display = "none";
+  registerSection.style.display = "none";
+  profileSection.style.display = "block";
+}
+
+
+// LOAD USERS
+async function loadUsers() {
+
+  const list = document.getElementById("userList");
+
+  try {
+
+    const res = await fetch("/api/users");
+
+    if (!res.ok) {
+      list.innerHTML = "<li>(Could not load users)</li>";
+      return;
+    }
+
+    const users = await res.json();
+
+    if (users.length === 0) {
+      list.innerHTML = "<li>(No users yet)</li>";
+      return;
+    }
+
+    list.innerHTML = "";
+
+    for (const u of users) {
+
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        <strong>${u.username}</strong>
+        <span class="muted"> — created ${u.created_at}</span>
+      `;
+
+      list.appendChild(li);
+    }
+
+  } catch (err) {
+
+    console.error(err);
+    list.innerHTML = "<li>(Error loading users)</li>";
+
+  }
+
+}
+
+
+// Try loading profile on page load
+loadProfile();
+loadUsers();
+
+</script>
+
+<%- include('partials/footer') %>
