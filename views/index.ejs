@@ -15,6 +15,9 @@
       <label for="reg_username">Username</label>
       <input id="reg_username" name="username" type="text" required />
 
+      <label for="reg_email">Email</label>
+      <input id="reg_email" name="email" type="email" required />
+
       <label for="reg_password">Password</label>
       <input id="reg_password" name="password" type="password" required />
 
@@ -58,6 +61,7 @@
 
 </section>
 
+
 <section class="card">
 
   <h2>Registered Users</h2>
@@ -67,6 +71,7 @@
   </ul>
 
 </section>
+
 
 <script>
 
@@ -84,13 +89,14 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
   e.preventDefault();
 
   const username = document.getElementById("reg_username").value;
+  const email = document.getElementById("reg_email").value;
   const password = document.getElementById("reg_password").value;
 
   const res = await fetch("/api/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "same-origin",
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, email, password })
   });
 
   const data = await res.json();
@@ -176,6 +182,7 @@ async function loadProfile() {
   profileDiv.innerHTML = `
     <p><strong>ID:</strong> ${user.id}</p>
     <p><strong>Username:</strong> ${user.username}</p>
+    <p><strong>Email:</strong> ${user.email}</p>
     <p class="muted">Created: ${user.created_at}</p>
   `;
 
@@ -214,7 +221,7 @@ async function loadUsers() {
 
       li.innerHTML = `
         <strong>${u.username}</strong>
-        <span class="muted"> — created ${u.created_at}</span>
+        <span class="muted"> — ${u.email} — created ${u.created_at}</span>
       `;
 
       list.appendChild(li);

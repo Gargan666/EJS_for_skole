@@ -1,0 +1,267 @@
+<%- include('partials/header') %>
+
+<h1>Message Feed</h1>
+
+<div id="message" class="notice" style="display:none;"></div>
+
+<section class="card">
+
+  <h2>Create Post</h2>
+
+  <form id="postForm" class="form">
+    <textarea id="post_text" placeholder="What's on your mind?" required></textarea>
+    <button type="submit">Post</button>
+  </form>
+
+</section>
+
+
+<section class="card">
+
+  <h2>Feed</h2>
+
+  <ul id="postList">
+    <li class="muted">(Loading posts...)</li>
+  </ul>
+
+</section>
+
+
+<script>
+
+// Message helper
+function showMessage(msg) {
+  const box = document.getElementById("message");
+  box.style.display = "block";
+  box.textContent = msg;
+}
+
+
+// LOAD POSTS (ONLY ROOT POSTS)
+async function loadPosts() {
+
+  const list = document.getElementById("postList");
+
+  try {
+
+    const res = await fetch("/api/posts");
+
+    if (!res.ok) {
+      list.innerHTML = "<li>(Could not load posts)</li>";
+      return;
+    }
+
+    const posts = await res.json();
+
+    // ✅ Only root posts (no parent)
+    const rootPosts = posts.filter(p => p.parent === null);
+
+    if (rootPosts.length === 0) {
+      list.innerHTML = "<li>(No posts yet)</li>";
+      return;
+    }
+
+    list.innerHTML = "";
+
+    for (const p of rootPosts) {
+
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        <div>
+          <strong>${p.username}</strong>
+          <span class="muted"> — ${p.created_at}</span>
+        </div>
+
+        <div>${p.text}</div>
+
+<div>
+  <button onclick="likePost(${p.id})">
+    ❤️ Like (${p.likes})
+  </button>
+</div>
+
+<div style="margin-top:5px;">
+  <button onclick="toggleCommentForm(${p.id})">Comment</button>
+</div>
+
+        <div id="comment-form-${p.id}" style="display:none; margin-top:10px;">
+          <textarea id="comment-text-${p.id}" placeholder="Write a comment..."></textarea>
+          <button onclick="submitComment(${p.id})">Submit</button>
+        </div>
+
+<ul id="replies-${p.id}" class="replies"></ul>
+
+<button id="toggle-comments-${p.id}" 
+        onclick="toggleComments(${p.id})"
+        style="display:none; margin-top:5px;">
+  Show more comments
+</button>
+      `;
+
+      list.appendChild(li);
+
+      // Load replies for this post
+      loadReplies(p.id);
+    }
+
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = "<li>(Error loading posts)</li>";
+  }
+}
+
+
+// LOAD REPLIES
+async function loadReplies(postId) {
+
+  const container = document.getElementById(`replies-${postId}`);
+  const toggleBtn = document.getElementById(`toggle-comments-${postId}`);
+
+  try {
+
+    const res = await fetch(`/api/posts/${postId}/replies`);
+
+    if (!res.ok) {
+      container.innerHTML = "<li>(Could not load comments)</li>";
+      return;
+    }
+
+    const replies = await res.json();
+
+    if (replies.length === 0) {
+      container.innerHTML = "<li class='muted'>(No comments yet)</li>";
+      toggleBtn.style.display = "none";
+      return;
+    }
+
+    container.innerHTML = "";
+
+    replies.forEach((r, index) => {
+
+      const li = document.createElement("li");
+
+      li.innerHTML = `
+        <div>
+          <strong>${r.username}</strong>
+          <span class="muted"> — ${r.created_at}</span>
+        </div>
+        <div>${r.text}</div>
+      `;
+
+      // ✅ Hide all except first comment
+      if (index > 0) {
+        li.style.display = "none";
+        li.classList.add("extra-comment");
+      }
+
+      container.appendChild(li);
+    });
+
+    // ✅ Show toggle button if more than 1 comment
+    if (replies.length > 1) {
+      toggleBtn.style.display = "inline-block";
+      toggleBtn.dataset.expanded = "false";
+      toggleBtn.textContent = "Show more comments";
+    } else {
+      toggleBtn.style.display = "none";
+    }
+
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = "<li>(Error loading comments)</li>";
+  }
+}
+
+function toggleComments(postId) {
+
+  const container = document.getElementById(`replies-${postId}`);
+  const btn = document.getElementById(`toggle-comments-${postId}`);
+  const hiddenComments = container.querySelectorAll(".extra-comment");
+
+  const expanded = btn.dataset.expanded === "true";
+
+  hiddenComments.forEach(el => {
+    el.style.display = expanded ? "none" : "block";
+  });
+
+  btn.dataset.expanded = expanded ? "false" : "true";
+  btn.textContent = expanded ? "Show more comments" : "Hide comments";
+}
+
+// TOGGLE COMMENT FORM
+function toggleCommentForm(postId) {
+  const el = document.getElementById(`comment-form-${postId}`);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+
+// SUBMIT COMMENT
+async function submitComment(postId) {
+
+  const textarea = document.getElementById(`comment-text-${postId}`);
+  const text = textarea.value;
+
+  if (!text.trim()) return;
+
+  const res = await fetch("/api/posts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      text,
+      parent: postId
+    })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    showMessage(data.error);
+  } else {
+    textarea.value = "";
+    loadReplies(postId);
+  }
+}
+
+
+// CREATE POST
+document.getElementById("postForm").addEventListener("submit", async (e) => {
+
+  e.preventDefault();
+
+  const text = document.getElementById("post_text").value;
+
+  const res = await fetch("/api/posts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ text })
+  });
+
+  const data = await res.json();
+
+  if (data.error) {
+    showMessage(data.error);
+  } else {
+    showMessage("Post created");
+    document.getElementById("post_text").value = "";
+    loadPosts();
+  }
+
+});
+
+
+// LIKE
+async function likePost(id) {
+  await fetch(`/api/posts/${id}/like`, { method: "POST" });
+  loadPosts();
+}
+
+
+// INITIAL LOAD
+loadPosts();
+
+</script>
+
+<%- include('partials/footer') %>
