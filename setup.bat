@@ -7,9 +7,9 @@ REM Initialize npm project
 echo Running npm init...
 npm init -y
 
-REM Install dependencies
-echo Installing dependencies...
-npm install express ejs sqlite3
+REM Initialize Localhost
+echo Starting localhost...
+node app.js
 
 echo.
 echo ================================

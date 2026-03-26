@@ -1,25 +1,12 @@
-// Importerer innebygd 'path' for trygg håndtering av filstier
 const path = require('path');
-
-// Importerer Express-rammeverket
 const express = require('express');
-
-// Importerer SQLite3-driver
 const sqlite3 = require('sqlite3').verbose();
-
-// Importerer bcrypt for kryptering av passord
 const bcrypt = require('bcrypt');
-
-// Importerer express-session for innloggingssesjoner
 const session = require('express-session');
 
-// Lager Express-applikasjonen
 const app = express();
-
-// Port
 const PORT = 3000;
 
-// Database
 const db = new sqlite3.Database(path.join(__dirname, 'accounts.db'));
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -27,13 +14,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-
 // =====================
 // DATABASE SETUP
 // =====================
 
 db.serialize(() => {
-
   db.run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,7 +42,6 @@ db.serialize(() => {
     )
   `);
 
-  // NEW: like tracking table
   db.run(`
     CREATE TABLE IF NOT EXISTS post_likes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,7 +53,6 @@ db.serialize(() => {
     )
   `);
 });
-
 
 // =====================
 // MIDDLEWARE
@@ -84,6 +67,11 @@ app.use(session({
   saveUninitialized: false
 }));
 
+// ✅ Make user available in ALL EJS templates
+app.use((req, res, next) => {
+  res.locals.user = req.session.user || null;
+  next();
+});
 
 // =====================
 // HELPERS
@@ -116,18 +104,16 @@ function dbRun(sql, params = []) {
   });
 }
 
-
 // =====================
 // AUTH MIDDLEWARE
 // =====================
 
 function requireAuth(req, res, next) {
-  if (!req.session || !req.session.userId) {
+  if (!req.session || !req.session.user) {
     return res.status(401).json({ error: "Ikke logget inn" });
   }
   next();
 }
-
 
 // =====================
 // PAGES
@@ -138,12 +124,15 @@ app.get('/', (req, res) => {
 });
 
 app.get('/feed', (req, res) => {
-  if (!req.session || !req.session.userId) {
+  if (!req.session.user) {
     return res.redirect('/');
   }
   res.render('feed', { title: "Feed" });
 });
 
+app.get('/account', (req, res) => {
+  res.render('account', { title: "Account" });
+});
 
 // =====================
 // AUTH ROUTES
@@ -170,7 +159,11 @@ app.post('/api/register', async (req, res) => {
       ]
     );
 
-    req.session.userId = result.lastID;
+    // ✅ Store user in session (IMPORTANT)
+    req.session.user = {
+      id: result.lastID,
+      username: username.trim()
+    };
 
     res.json({ success: true });
 
@@ -182,7 +175,6 @@ app.post('/api/register', async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
-
 
 app.post('/api/login', async (req, res) => {
   try {
@@ -199,7 +191,11 @@ app.post('/api/login', async (req, res) => {
 
     if (!valid) return res.status(401).json({ error: "Invalid login" });
 
-    req.session.userId = user.id;
+    // ✅ Store user in session
+    req.session.user = {
+      id: user.id,
+      username: user.username
+    };
 
     res.json({ success: true });
 
@@ -209,39 +205,22 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ success: true }));
 });
 
-
 app.get('/api/profile', requireAuth, async (req, res) => {
-const user = await dbGet(
-  "SELECT id, username, email, created_at FROM users WHERE id = ?",
-  [req.session.userId]
-);
+  const user = await dbGet(
+    "SELECT id, username, email, created_at FROM users WHERE id = ?",
+    [req.session.user.id]
+  );
   res.json(user);
-});
-
-app.get('/api/users', async (req, res) => {
-  try {
-    const users = await dbAll(
-      "SELECT id, username, email, created_at FROM users"
-    );
-
-    res.json(users);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Serverfeil" });
-  }
 });
 
 // =====================
 // POSTS
 // =====================
 
-// CREATE POST
 app.post('/api/posts', requireAuth, async (req, res) => {
   const { text, parent = null } = req.body;
 
@@ -252,14 +231,12 @@ app.post('/api/posts', requireAuth, async (req, res) => {
   const result = await dbRun(
     `INSERT INTO posts (user_id, text, parent, created_at)
      VALUES (?, ?, ?, ?)`,
-    [req.session.userId, text.trim(), parent, new Date().toISOString()]
+    [req.session.user.id, text.trim(), parent, new Date().toISOString()]
   );
 
   res.json({ success: true, id: result.lastID });
 });
 
-
-// GET POSTS (with correct like count)
 app.get('/api/posts', async (req, res) => {
   const posts = await dbAll(`
     SELECT 
@@ -278,58 +255,6 @@ app.get('/api/posts', async (req, res) => {
 
   res.json(posts);
 });
-
-app.get('/api/posts/:id/replies', async (req, res) => {
-  try {
-    const postId = Number(req.params.id); // FORCE NUMBER
-
-    const replies = await dbAll(`
-      SELECT 
-        posts.id,
-        posts.text,
-        posts.created_at,
-        posts.parent,
-        users.username,
-        COUNT(post_likes.id) as likes
-      FROM posts
-      JOIN users ON posts.user_id = users.id
-      LEFT JOIN post_likes ON post_likes.post_id = posts.id
-      WHERE posts.parent = ?
-      GROUP BY posts.id
-      ORDER BY posts.created_at ASC
-    `, [postId]);
-
-    res.json(replies);
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Serverfeil" });
-  }
-});
-
-
-// LIKE POST (one per user)
-app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
-  try {
-    await dbRun(
-      `INSERT INTO post_likes (user_id, post_id)
-       VALUES (?, ?)`,
-      [req.session.userId, req.params.id]
-    );
-
-    res.json({ success: true });
-
-  } catch (err) {
-
-    if (err.message.includes("UNIQUE")) {
-      return res.json({ message: "Already liked" });
-    }
-
-    console.error(err);
-    res.status(500).json({ error: "Serverfeil" });
-  }
-});
-
 
 // =====================
 // START SERVER
