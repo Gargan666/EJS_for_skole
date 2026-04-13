@@ -2,8 +2,6 @@
 
 <h1>Message Feed</h1>
 
-<div id="message" class="notice" style="display:none;"></div>
-
 <section class="card">
 
   <h2>Create Post</h2>
@@ -28,14 +26,6 @@
 
 
 <script>
-
-// Message helper
-function showMessage(msg) {
-  const box = document.getElementById("message");
-  box.style.display = "block";
-  box.textContent = msg;
-}
-
 
 // LOAD POSTS (ONLY ROOT POSTS)
 async function loadPosts() {
@@ -73,16 +63,17 @@ async function loadPosts() {
           <span class="muted"> — ${p.created_at}</span>
         </div>
 
-        <div>${p.text}</div>
-
+        <div class="post_content">${p.text}</div>
+<div class="post_ui">
 <div>
   <button onclick="likePost(${p.id})">
     ❤️ ${p.likes}
   </button>
 </div>
 
-<div style="margin-top:5px;">
+<div style="margin-left:5px; height:100%;">
   <button onclick="toggleCommentForm(${p.id})">Comment</button>
+</div>
 </div>
 
         <div id="comment-form-${p.id}" style="display:none; margin-top:10px;">
@@ -216,9 +207,7 @@ async function submitComment(postId) {
 
   const data = await res.json();
 
-  if (data.error) {
-    showMessage(data.error);
-  } else {
+  if (!data.error) {
     textarea.value = "";
     loadReplies(postId);
   }
@@ -241,10 +230,7 @@ document.getElementById("postForm").addEventListener("submit", async (e) => {
 
   const data = await res.json();
 
-  if (data.error) {
-    showMessage(data.error);
-  } else {
-    showMessage("Post created");
+  if (!data.error) {
     document.getElementById("post_text").value = "";
     loadPosts();
   }

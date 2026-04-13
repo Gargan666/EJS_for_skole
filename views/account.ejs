@@ -60,17 +60,6 @@
 </section>
 
 
-<section class="card">
-
-  <h2>Registered Users</h2>
-
-  <ul id="userList">
-    <li class="muted">(Loading users...)</li>
-  </ul>
-
-</section>
-
-
 <script>
 
 
@@ -94,7 +83,6 @@ document.getElementById("registerForm").addEventListener("submit", async (e) => 
 
   if (!data.error) {
     loadProfile();
-    loadUsers();
   }
 
 });
@@ -173,56 +161,8 @@ async function loadProfile() {
   registerSection.style.display = "none";
   profileSection.style.display = "block";
 }
-
-
-// LOAD USERS
-async function loadUsers() {
-
-  const list = document.getElementById("userList");
-
-  try {
-
-    const res = await fetch("/api/users");
-
-    if (!res.ok) {
-      list.innerHTML = "<li>(Could not load users)</li>";
-      return;
-    }
-
-    const users = await res.json();
-
-    if (users.length === 0) {
-      list.innerHTML = "<li>(No users yet)</li>";
-      return;
-    }
-
-    list.innerHTML = "";
-
-    for (const u of users) {
-
-      const li = document.createElement("li");
-
-      li.innerHTML = `
-        <strong>${u.username}</strong>
-        <span class="muted"> — ${u.email} — created ${u.created_at}</span>
-      `;
-
-      list.appendChild(li);
-    }
-
-  } catch (err) {
-
-    console.error(err);
-    list.innerHTML = "<li>(Error loading users)</li>";
-
-  }
-
-}
-
-
 // Try loading profile on page load
 loadProfile();
-loadUsers();
 
 </script>
 

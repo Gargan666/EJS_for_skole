@@ -134,6 +134,10 @@ app.get('/account', (req, res) => {
   res.render('account', { title: "Account" });
 });
 
+app.get('/login', (req, res) => {
+  res.render('login', { title: "Login" });
+});
+
 // =====================
 // AUTH ROUTES
 // =====================
@@ -159,7 +163,6 @@ app.post('/api/register', async (req, res) => {
       ]
     );
 
-    // ✅ Store user in session (IMPORTANT)
     req.session.user = {
       id: result.lastID,
       username: username.trim()
@@ -191,7 +194,6 @@ app.post('/api/login', async (req, res) => {
 
     if (!valid) return res.status(401).json({ error: "Invalid login" });
 
-    // ✅ Store user in session
     req.session.user = {
       id: user.id,
       username: user.username
@@ -217,8 +219,20 @@ app.get('/api/profile', requireAuth, async (req, res) => {
   res.json(user);
 });
 
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await dbAll(
+      "SELECT id, username, email, created_at FROM users"
+    );
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Serverfeil" });
+  }
+});
+
 // =====================
-// POSTS
+// POSTS + COMMENTS + LIKES
 // =====================
 
 app.post('/api/posts', requireAuth, async (req, res) => {
@@ -256,6 +270,69 @@ app.get('/api/posts', async (req, res) => {
   res.json(posts);
 });
 
+app.get('/api/posts/:id/replies', async (req, res) => {
+  try {
+    const postId = Number(req.params.id);
+
+    const replies = await dbAll(`
+      SELECT 
+        posts.id,
+        posts.text,
+        posts.created_at,
+        posts.parent,
+        users.username,
+        COUNT(post_likes.id) as likes
+      FROM posts
+      JOIN users ON posts.user_id = users.id
+      LEFT JOIN post_likes ON post_likes.post_id = posts.id
+      WHERE posts.parent = ?
+      GROUP BY posts.id
+      ORDER BY posts.created_at ASC
+    `, [postId]);
+
+    res.json(replies);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Serverfeil" });
+  }
+});
+
+app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const postId = Number(req.params.id);
+
+    // Check if already liked
+    const existing = await dbGet(
+      `SELECT id FROM post_likes WHERE user_id = ? AND post_id = ?`,
+      [userId, postId]
+    );
+
+    if (existing) {
+      // Unlike
+      await dbRun(
+        `DELETE FROM post_likes WHERE user_id = ? AND post_id = ?`,
+        [userId, postId]
+      );
+
+      return res.json({ success: true, liked: false });
+    } else {
+      // Like
+      await dbRun(
+        `INSERT INTO post_likes (user_id, post_id)
+         VALUES (?, ?)`,
+        [userId, postId]
+      );
+
+      return res.json({ success: true, liked: true });
+    }
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Serverfeil" });
+  }
+});
 // =====================
 // START SERVER
 // =====================

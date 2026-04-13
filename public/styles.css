@@ -109,6 +109,23 @@ li {
   height: 200px;
 }
 
+.post_ui {
+  display: flex;
+  flex-direction: row;
+}
+
+.post_content {
+  margin-block: 15px;
+  outline: 2px solid black;
+  background-color: lightgrey;
+  padding: 10px;
+
+  /* ✅ Critical fixes */
+  white-space: pre-wrap;       /* preserves line breaks */
+  overflow-wrap: break-word;   /* breaks long words */
+  word-break: break-word;      /* fallback for older browsers */
+}
+
 /* ----------- BURGER MENU ----------- */
 
 #burger {
@@ -142,3 +159,19 @@ li {
 }
 
 /* ----------- ACCOUNT MENU ----------- */
+
+.account-btn {
+  position: absolute;
+  top: 20px;
+  right: 100px;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+
+/* ---------- FOOTER ------------ */
+
+.site-footer {
+  padding: 16px 24px;
+  background-color: gray;
+}
